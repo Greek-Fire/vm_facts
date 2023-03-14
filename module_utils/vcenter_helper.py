@@ -4,7 +4,6 @@ import atexit
 from pyVim import connect
 from pyVmomi import vim
 
-
 class VcenterConnection:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
         self.host = host
@@ -15,10 +14,9 @@ class VcenterConnection:
 
     def connect(self):
         """
-        connect to vCenter
+        Connect to vCenter.
         """
         try:
-            # Connect to vCenter using SSL or not based on the disable_ssl_verification variable
             if self.disable_ssl_verification:
                 service_instance = connect.SmartConnectNoSSL(host=self.host, user=self.user, pwd=self.pwd)
             else:
@@ -32,13 +30,12 @@ class VcenterConnection:
 
     def disconnect(self):
         """
-        disconnect from vCenter
+        Disconnect from vCenter.
         """
         try:
             connect.Disconnect(self.si)
         except Exception as e:
             raise Exception(f"Unable to disconnect from vCenter: {e}")
-
 
 class VcenterFacts:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
@@ -47,63 +44,112 @@ class VcenterFacts:
 
     def get_datacenters(self):
         """
-        Retrieve a list of datacenter names in the vCenter.
+        Retrieve a list of datacenter objects in the vCenter.
         """
         content = self.si.content
-        datacenters = []
-        for dc in content.rootFolder.childEntity[0].childEntity:
-            datacenters.append(dc.name)
+        datacenters = [dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)]
         return datacenters
 
-    def get_clusters(self, datacenters=None):
+    def get_clusters(self, dc=None):
         """
         Retrieve a list of dictionaries, mapping cluster names to datacenter names.
         If datacenters are not specified, retrieves all datacenters.
         """
-        if not datacenters:
-            datacenters = self.get_datacenters()
+        datacenters = dc or self.get_datacenters()
 
-        content = self.si.content
         clusters = []
-        for datacenter in datacenters:
-            dc = content.rootFolder.childEntity[0].findChild(datacenter)
-            if not dc:
-                continue
-            for cluster in dc.hostFolder.childEntity[0].childEntity:
-                clusters.append({
-                    'name': cluster.name,
-                    'datacenter': datacenter,
-                })
+        for dc in datacenters:
+            for cluster in dc.hostFolder.childEntity:
+                if isinstance(cluster, vim.ClusterComputeResource):
+                    total_memory = cluster.summary.totalMemory
+                    total_cores = cluster.summary.numCpuCores
+                    clusters.append({
+                        'name': cluster.name,
+                        'datacenter': dc.name,
+                        'total_memory': total_memory,
+                        'total_cores': total_cores,
+                    })
+
         return clusters
 
-    def get_networks(self, datacenters=None, clusters=None):
+    def get_datastore_clusters(self, dc=None):
+        """
+        Retrieve a list of dictionaries representing all available datastore clusters,
+        each with its name, free space, and total space.
+        If datacenters are not specified, retrieves all datacenters.
+        """
+        datacenters = dc or self.get_datacenters()
+
+        datastore_clusters = []
+        for dc in datacenters:
+            for datastore_cluster in dc.datastoreFolder.childEntity:
+                if isinstance(datastore_cluster, vim.StoragePod):
+                    free_space = datastore_cluster.summary.freeSpace
+                    total_space = datastore_cluster.summary.capacity
+                    datastore_clusters.append({
+                        'name': datastore_cluster.name,
+                        'datacenter': dc.name,
+                        'free_space': free_space,
+                        'total_space': total_space,
+                    })
+
+        return datastore_clusters
+    
+    def get_datastore_with_most_space_in_cluster(self, datastore_cluster_name):
+        """
+        Find the datastore with the most available storage in the specified datastore cluster.
+        If a datacenter is specified, only consider datastores in that datacenter.
+        """
+        datacenters = dc or self.get_datacenters()
+        datastore_cluster = None
+
+        for datacenter in datacenters:
+            for ds_cluster in datacenter.datastoreFolder.childEntity:
+                if isinstance(ds_cluster, vim.StoragePod) and ds_cluster.name == datastore_cluster_name:
+                    datastore_cluster = ds_cluster
+                    break
+            if datastore_cluster:
+                break
+
+        if not datastore_cluster:
+            raise Exception(f"No datastore cluster found with the name '{datastore_cluster_name}'")
+
+        datastores = datastore_cluster.childEntity
+
+        if not datastores:
+            raise Exception("No datastores found in the specified datastore cluster")
+
+        # Find the datastore with the most free space
+        max_datastore = max(datastores, key=lambda x: x.summary.freeSpace)
+
+        return {
+            'name': max_datastore.name,
+            'datastore_cluster': datastore_cluster_name,
+            'free_space': max_datastore.summary.freeSpace,
+            'total_space': max_datastore.summary.capacity
+        }
+
+
+    def get_networks(self, dc=None, clusters=None):
         """
         Retrieve a list of dictionaries, mapping network names to datacenter and cluster names.
         If datacenters or clusters are not specified, retrieves all datacenters or clusters.
         """
-        if not datacenters:
-            datacenters = self.get_datacenters()
-        if not clusters:
-            clusters = []
-            for datacenter in datacenters:
-                clusters += [cluster['name'] for cluster in self.get_clusters([datacenter])]
+        datacenters = dc or self.get_datacenters()
 
         networks = []
         for datacenter in datacenters:
-            dc = self.si.content.rootFolder.childEntity[0].findChild(datacenter)
-            if not dc:
-                continue
-            for cluster in clusters:
-                cl = dc.hostFolder.childEntity[0].findChild(cluster)
-                if not cl:
-                    continue
-                for network in cl.network:
-                    datacenter_names = [dc.name for dc in network.summary.datacenter]
-                    cluster_names = [host.parent.name for host in network.summary.host]
-                    if len(datacenter_names) > 1 and len(cluster_names) > 1:
+            dc_clusters = clusters or self.get_clusters([datacenter])
+            for cluster in dc_clusters:
+                if isinstance(cluster, vim.ClusterComputeResource):
+                    if cluster.parent.parent != datacenter:
+                        raise Exception(f"Cluster '{cluster.name}' is not in the specified datacenter '{datacenter.name}'")
+
+                    for network in cluster.network:
                         networks.append({
                             'name': network.name,
-                            'datacenter': datacenter,
-                            'cluster': cluster,
+                            'datacenter': datacenter.name,
+                            'cluster': cluster.name,
                         })
-        return
+
+        return networks
