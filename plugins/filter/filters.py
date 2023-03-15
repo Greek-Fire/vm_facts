@@ -1,4 +1,7 @@
+#!/usr/bin/python
+  
 import ipaddress
+from ansible.errors import AnsibleFilterError
 
 class FilterModule(object):
     def filters(self):
@@ -13,9 +16,16 @@ class FilterModule(object):
         """
         ip = ipaddress.IPv4Address(ip_address)
         try:
-            network = ipaddress.IPv4Network(network_address)
+            if '/' in network_address:
+                network = ipaddress.IPv4Network(network_address)
+            else:
+                raise AnsibleFilterError(
+                    "Network address '{}' is missing the netmask".format(network_address)
+                )
         except ValueError:
-            network = ipaddress.IPv4Network(network_address + '/32')
+            raise AnsibleFilterError(
+                "Network address '{}' is not a valid IP network address".format(network_address)
+            )
         gateway = ipaddress.IPv4Address(gateway_address)
 
         is_valid = True
@@ -25,7 +35,7 @@ class FilterModule(object):
             is_valid = False
         elif ip == gateway:
             is_valid = False
-        elif ipaddress.IPv4Address(network_address).network_address != network.network_address:
+        elif not network.overlaps(ipaddress.IPv4Network(ip_address + '/32')):
             is_valid = False
 
         return is_valid
