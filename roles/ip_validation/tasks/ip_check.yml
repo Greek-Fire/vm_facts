@@ -1,8 +1,8 @@
 ---
 - name: Fail if ip is not Valid
   fail:
-    msg: "Check: {{ host_ip}}. It failed a general IP validation test"
-  when: "{{ host_ip | validate_ip }}"
+    msg: "Check {{ host_ip }}! It failed a general IP validation test"
+  when: not host_ip | validate_ip
 
 - name: Search for IP address in Satellite
   uri:
@@ -10,6 +10,7 @@
     method: GET
     user: "{{ satellite_user }}"
     password: "{{ satellite_password }}"
+    force_basic_auth: 1
     validate_certs: no
     return_content: yes
   register: satellite_search

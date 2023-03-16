@@ -6,25 +6,43 @@ from ansible.errors import AnsibleFilterError
 class FilterModule(object):
     def filters(self):
         return {
-            'get_ip_validation': self.get_ip_validation,
+            'network_validation': self.network_validation,
             'validate_ip':       self.validate_ip,
+            'get_subnet_info':   self.get_subnet_info,
             'match_network':     self.match_network
         }
     
+    def get_subnet_info(self, subnet_data):
+        """
+        This filter returns a list of strings in the format "<subnet_name>/<cidr>" for each subnet in the provided data.
+        """
+        subnet_info = []
+        for subnet in subnet_data:
+            subnet_name = subnet['name']
+            cidr = str(subnet['cidr'])
+            subnet_str = subnet_name + '/' + cidr
+            subnet_info.append(subnet_str)
+        return subnet_info
+    
     def validate_ip(self, ip_address):
         """
-        This filter returns True if the provided IP address is a valid IPv4 address, otherwise False
+        This filter returns True if the provided IP address is a valid IPv4 address and not a broadcast address, otherwise False
         """
         try:
             ip = ipaddress.IPv4Address(ip_address)
-            assert ip.is_private or ip.is_reserved or ip.is_global
+            if (ip.is_private or
+                ip.is_reserved or
+                ip.is_global
+                ):
+                if ip.is_multicast:
+                    return False
+                return ip
+            else:
+                return False
         except ipaddress.AddressValueError:
-            raise AnsibleFilterError(
-                f"Invalid IP address: {ip}"
-                )
-        return True
+            return False
 
-    def get_ip_validation(self, ip_address, network_address, gateway_address):
+    def network_validation(self, ip_address, network_address, gateway_address):
         """
         This filter returns True if the provided IP address is valid for the provided network,
         is not a broadcast address, and is not the same as the gateway address, otherwise False
@@ -36,8 +54,8 @@ class FilterModule(object):
                 raise AnsibleFilterError(
                     f"Network address {network_address} is missing the netmask"
                 )
-            gw = ipaddress.IPv4Address(gateway_address)
-            ip = validate_ip(ip_address)
+            gw = self.validate_ip(gateway_address)
+            ip = self.validate_ip(ip_address)
         except ipaddress.AddressValueError:
             raise AnsibleFilterError(
                 f"Invalid IP address: {ip_address} or {gw}"
