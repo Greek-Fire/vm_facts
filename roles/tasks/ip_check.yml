@@ -1,4 +1,9 @@
 ---
+- name: Fail if ip is not Valid
+  fail:
+    msg: "Check: {{ host_ip}}. It failed a general IP validation test"
+  when: "{{ host_ip | validate_ip }}"
+
 - name: Search for IP address in Satellite
   uri:
     url: "https://{{ satellite_fqdn }}/api/v2/hosts?search=ip={{ host_ip }}"
@@ -9,7 +14,7 @@
     return_content: yes
   register: satellite_search
 
-- name: Get name of host claiming IP address
-  set_fact:
-    host_name: "{{ satellite_search.json.results[0].name }}"
+- name: Fail when IP address is claimed
+  fail:
+    msg: "{{ satellite_search.json.results[0].name }} has claimed that IP address"
   when: satellite_search.json.results | length > 0

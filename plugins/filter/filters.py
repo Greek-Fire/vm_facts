@@ -7,8 +7,22 @@ class FilterModule(object):
     def filters(self):
         return {
             'get_ip_validation': self.get_ip_validation,
-            'match_network': self.match_network
+            'validate_ip':       self.validate_ip,
+            'match_network':     self.match_network
         }
+    
+    def validate_ip(self, ip_address):
+        """
+        This filter returns True if the provided IP address is a valid IPv4 address, otherwise False
+        """
+        try:
+            ip = ipaddress.IPv4Address(ip_address)
+            assert ip.is_private or ip.is_reserved or ip.is_global
+        except ipaddress.AddressValueError:
+            raise AnsibleFilterError(
+                f"Invalid IP address: {ip}"
+                )
+        return True
 
     def get_ip_validation(self, ip_address, network_address, gateway_address):
         """
@@ -23,7 +37,7 @@ class FilterModule(object):
                     f"Network address {network_address} is missing the netmask"
                 )
             gw = ipaddress.IPv4Address(gateway_address)
-            ip = ipaddress.IPv4Address(ip_address)
+            ip = validate_ip(ip_address)
         except ipaddress.AddressValueError:
             raise AnsibleFilterError(
                 f"Invalid IP address: {ip_address} or {gw}"
@@ -42,23 +56,28 @@ class FilterModule(object):
         return is_valid
     
     def match_network(self, ip_address, network_list):
-        '''
-        # Convert the input IP address to an IPv4Address object
-        '''
+        """
+        This filter returns the network address if the provided IP address is in the given network list,
+        otherwise False
+        """
         try:
             ip = ipaddress.IPv4Address(ip_address)
-
         except ipaddress.AddressValueError:
-            raise ValueError(f"Invalid IP address: {ip}")
-        
+            raise AnsibleFilterError(f"Invalid IP address: {ip_address}")
+
         for network_address in network_list:
-            if '/' in network_address:
+            network_parts = network_address.split('/')
+            if len(network_parts) != 2:
+                raise AnsibleFilterError(f"Network address {network_address} is missing the netmask")
+
+            network_ip = network_parts[0]
+            try:
                 network = ipaddress.IPv4Network(network_address)
-            else:
-                raise AnsibleFilterError(
-                    f"Network address {network_address} is missing the netmask"
-                )
-            network = ipaddress.IPv4Network(network_address)
+            except ipaddress.AddressValueError:
+                print(f"Invalid network address: {network_address}")
+                continue
+
             if ip in network:
                 return str(network)
+
         return False
