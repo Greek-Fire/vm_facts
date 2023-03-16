@@ -1,12 +1,12 @@
 ---
 - name: Fail if ip is not Valid
   fail:
-    msg: "Check {{ host_ip }}! It failed a general IP validation test"
-  when: not host_ip | validate_ip
+    msg: "Check {{ build_ip }}! It failed a general IP validation test"
+  when: not build_ip | validate_ip
 
 - name: Search for IP address in Satellite
   uri:
-    url: "https://{{ satellite_fqdn }}/api/v2/hosts?search=ip={{ host_ip }}"
+    url: "https://{{ satellite_fqdn }}/api/v2/hosts?search=ip={{ build_ip }}"
     method: GET
     user: "{{ satellite_user }}"
     password: "{{ satellite_password }}"
