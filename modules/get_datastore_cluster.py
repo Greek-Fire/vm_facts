@@ -2,7 +2,7 @@
 
 DOCUMENTATION = '''
 --- 
-module: vcenter_datastore_facts
+module: vcenter_datastore_cluster_facts
 short_description: Retrieve information about vSphere datastore clusters
 description:
     - Retrieve information about vSphere datastore clusters, including their names, available space,
@@ -26,11 +26,10 @@ options:
         description:
             - The password to use to connect to the vCenter server.
         required: true
-    datastore_cluster_name:
+    datacenter:
         description:
-            - The name of the datastore cluster for which to retrieve information.
-            - If not specified, retrieves information for all datastore clusters.
-        required: true   
+            - The name of the datacenter to use.
+        required: true
      disable_ssl_verification:
         description:
             - Whether to disable SSL verification when connecting to the vCenter server.
@@ -47,7 +46,7 @@ EXAMPLES = '''
         vcenter: vcenter.example.com
         username: admin
         password: password123
-        datastore_cluster_name: Production Datastore Cluster
+        datacenter: Production Datastore 
 '''
 
 from ansible.module_utils.basic import AnsibleModule
@@ -59,7 +58,7 @@ def main():
         username=dict(type='str', required=True, no_log=True),
         password=dict(type='str', required=True, no_log=True),
         disable_ssl_verification=dict(stype=bool, default=False),
-        datastore_cluster=dict(type='str', required=True)
+        datacenter=dict(type='str', required=True)
     )
 
     result = dict(
@@ -79,15 +78,15 @@ def main():
     vcenter = module.params['vcenter']
     username = module.params['username']
     password = module.params['password']
+    datacenter = module.params['datacenter']
     disable_ssl_verification = module.params['disable_ssl_verification']
-    datastore_cluster = module.params['datastore_cluster']
 
     try:
         vcenter_facts = VcenterFacts(vcenter, username, password, disable_ssl_verification)
-        datastore = vcenter_facts.get_datastore_with_most_space_in_cluster(datastore_cluster)
-        result['datastore'] = datastore
+        datastore_cluster = vcenter_facts.get_datastore_clusters(datacenter)
+        result['datastore_cluster'] = datastore_cluster
     except Exception as e:
-        result['error'] = f"Failed to retrieve datastore with most available storage in datastore cluster {datastore}: {str(e)}"
+        result['error'] = f"Failed to retrieve datastore cluster with most available storage in datastore cluster {datastore_cluster}: {str(e)}"
         module.fail_json(msg=result['error'])
 
     module.exit_json(**result)

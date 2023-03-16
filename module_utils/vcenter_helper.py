@@ -43,56 +43,63 @@ class VcenterFacts:
         self.conn = VcenterConnection(host, user, pwd, disable_ssl_verification)
         self.si = self.conn.connect()
 
-    def get_datacenters(self):
+    def get_datacenters(self, datacenter_name=None):
         """
         Retrieve a list of datacenter objects in the vCenter.
+        If datacenter_name is specified, return a tuple with the matching datacenter and its name.
         """
         content = self.si.content
-        datacenters = [dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)]
-        return datacenters
 
-    def get_clusters(self, dc=None):
+        if not datacenter_name:
+            datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}
+            return datacenters
+
+        datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}        
+        for dc in datacenters:
+            if dc.name == datacenter_name:
+                return dc
+
+        raise Exception(f"No datacenter found with the name '{datacenter_name}'")
+
+
+    def get_clusters(self, datacenter_name):
         """
         Retrieve a list of dictionaries, mapping cluster names to datacenter names.
         If datacenters are not specified, retrieves all datacenters.
         """
-        datacenters = dc or self.get_datacenters()
-
         clusters = []
-        for dc in datacenters:
-            for cluster in dc.hostFolder.childEntity:
-                if isinstance(cluster, vim.ClusterComputeResource):
-                    total_memory = cluster.summary.totalMemory
-                    total_cores = cluster.summary.numCpuCores
-                    clusters.append({
-                        'name': cluster.name,
-                        'datacenter': dc.name,
-                        'total_memory': total_memory,
-                        'total_cores': total_cores,
+        datacenter = self.get_datacenters(datacenter_name)
+        for cluster in datacenter.hostFolder.childEntity:
+            if isinstance(cluster, vim.ClusterComputeResource):
+                total_memory = cluster.summary.totalMemory
+                total_cores = cluster.summary.numCpuCores
+                clusters.append({
+                    'name': cluster.name,
+                    'datacenter': datacenter.name,
+                    'total_memory': total_memory,
+                    'total_cores': total_cores,
                     })
 
         return clusters
 
-    def get_datastore_clusters(self, dc=None):
+    def get_datastore_clusters(self, datacenter_name):
         """
         Retrieve a list of dictionaries representing all available datastore clusters,
         each with its name, free space, and total space.
         If datacenters are not specified, retrieves all datacenters.
         """
-        datacenters = dc or self.get_datacenters()
-
+        datacenter = self.get_datacenters(datacenter_name)
         datastore_clusters = []
-        for dc in datacenters:
-            for datastore_cluster in dc.datastoreFolder.childEntity:
-                if isinstance(datastore_cluster, vim.StoragePod):
-                    free_space = datastore_cluster.summary.freeSpace
-                    total_space = datastore_cluster.summary.capacity
-                    datastore_clusters.append({
-                        'name': datastore_cluster.name,
-                        'datacenter': dc.name,
-                        'free_space': free_space,
-                        'total_space': total_space,
-                    })
+        for cluster in datacenter.datastoreFolder.childEntity:
+            if isinstance(cluster, vim.StoragePod):
+                free_space = cluster.summary.freeSpace
+                total_space = cluster.summary.capacity
+                datastore_clusters.append({
+                    'name': cluster.name,
+                    'datacenter': datacenter.name,
+                    'free_space': free_space,
+                    'total_space': total_space,
+                })
 
         return datastore_clusters
     
@@ -101,13 +108,13 @@ class VcenterFacts:
         Find the datastore with the most available storage in the specified datastore cluster.
         If a datacenter is specified, only consider datastores in that datacenter.
         """
-        datacenters = dc or self.get_datacenters()
+        datacenters = self.get_datacenters()
         datastore_cluster = None
 
         for datacenter in datacenters:
-            for ds_cluster in datacenter.datastoreFolder.childEntity:
-                if isinstance(ds_cluster, vim.StoragePod) and ds_cluster.name == datastore_cluster_name:
-                    datastore_cluster = ds_cluster
+            for cluster in datacenter.datastoreFolder.childEntity:
+                if isinstance(cluster, vim.StoragePod) and cluster.name == datastore_cluster_name:
+                    datastore_cluster = cluster
                     break
             if datastore_cluster:
                 break
@@ -131,26 +138,25 @@ class VcenterFacts:
         }
 
 
-    def get_networks(self, dc=None, clusters=None):
+    def get_networks(self, dc=None, datacenter_name, clusters=None):
         """
         Retrieve a list of dictionaries, mapping network names to datacenter and cluster names.
         If datacenters or clusters are not specified, retrieves all datacenters or clusters.
         """
-        datacenters = dc or self.get_datacenters()
+        datacenter = self.get_datacenters(datacenter_name)
 
         networks = []
-        for datacenter in datacenters:
-            dc_clusters = clusters or self.get_clusters([datacenter])
-            for cluster in dc_clusters:
-                if isinstance(cluster, vim.ClusterComputeResource):
-                    if cluster.parent.parent != datacenter:
-                        raise Exception(f"Cluster '{cluster.name}' is not in the specified datacenter '{datacenter.name}'")
-
-                    for network in cluster.network:
-                        networks.append({
-                            'name': network.name,
-                            'datacenter': datacenter.name,
-                            'cluster': cluster.name,
-                        })
+        dc_clusters = clusters or self.get_clusters([datacenter])
+        for cluster in dc_clusters:
+            if not isinstance(cluster, vim.ClusterComputeResource):
+                continue
+            if not cluster.network:
+                continue
+            for network in cluster.network:
+                networks.append({
+                    'name': network.name,
+                    'datacenter': datacenter.name,
+                    'cluster': cluster.name,
+                })
 
         return networks
