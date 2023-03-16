@@ -1,0 +1,15 @@
+---
+- name: Search for IP address in Satellite
+  uri:
+    url: "https://{{ satellite_fqdn }}/api/v2/hosts?search=ip={{ host_ip }}"
+    method: GET
+    user: "{{ satellite_user }}"
+    password: "{{ satellite_password }}"
+    validate_certs: no
+    return_content: yes
+  register: satellite_search
+
+- name: Get name of host claiming IP address
+  set_fact:
+    host_name: "{{ satellite_search.json.results[0].name }}"
+  when: satellite_search.json.results | length > 0
