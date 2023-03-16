@@ -1,0 +1,11 @@
+- hosts: localhost
+  gather_facts: 0
+  vars:
+    host_ip: '192.168.1.255'
+    satellite_fqdn: sat.example.net
+    satellite_user: admin
+    satellite_password: redhat
+    my_network: '192.168.1.0/24'
+    my_gateway: '192.168.1.1'
+  tasks:
+    - include_tasks: test.yml
