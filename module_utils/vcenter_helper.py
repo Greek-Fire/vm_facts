@@ -3,6 +3,7 @@
 import atexit
 from pyVim import connect
 from pyVmomi import vim
+from ansible.errors import AnsibleError
 
 class VcenterConnection:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
@@ -26,7 +27,7 @@ class VcenterConnection:
             self.si = service_instance
             return service_instance
         except Exception as e:
-            raise Exception(f"Unable to connect to vCenter: {e}")
+            raise AnsibleError(f"Unable to connect to vCenter: {e}")
 
     def disconnect(self):
         """
@@ -35,7 +36,7 @@ class VcenterConnection:
         try:
             connect.Disconnect(self.si)
         except Exception as e:
-            raise Exception(f"Unable to disconnect from vCenter: {e}")
+            raise AnsibleError(f"Unable to disconnect from vCenter: {e}")
 
 class VcenterFacts:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
