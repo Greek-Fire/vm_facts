@@ -8,6 +8,9 @@
     validate_certs: no
     force_basic_auth: 1
     return_content: yes
+    body_format: json
+    body:
+      per_page: 9999
   register: satellite_subnet_data
 
 - name: Combine name and CIDR values
@@ -17,16 +20,39 @@
 - name: Fail when there is not network for the provided ip
   fail:
     msg: "There is no subnet in satellite for the provided ip address"
-  when: not host_ip | match_network(network_list)
+  when: not build_ip | match_network(network_list)
+
+- name: Collect subnet names
+  uri:
+    url: "https://{{ satellite_fqdn }}/api/v2/subnets?search=name={{ network_name }}"
+    method: GET
+    user: "{{ satellite_user }}"
+    password: "{{ satellite_password }}"
+    validate_certs: no
+    force_basic_auth: 1
+    return_content: yes
+  register: satellite_subnet_data
+  vars:
+    network_name: "{{ build_ip | match_network(network_list) }}"
+
+- name: Collect build  network and vcenter facts
+  set_fact:
+    build_network_facts:
+      build_ip:      "{{ build_ip }}"
+      buiild_mask:   "{{ temp['mask'] }}"
+      build_gateway: "{{ temp['gateway'] }}"
+      build_network: "{{ temp['network'] }}"
+      build_network_address: "{{ temp['network_address'] }}"
+    build_vcenter_info:
+      vcenter:     "{{ vcenter_facts[0] }}"
+      datacenter:  "{{ vcenter_facts[1] }}"
+      cluster:     "{{ vcenter_facts[2] }}"
+      vlan:        "{{ vcenter_facts[3] }}"
+  vars:
+    temp:          "{{ (satellite_subnet_data['json']['results'] | first) }}"
+    vcenter_facts: "{{ (satellite_subnet_data['json']['results'][0]['description']).split(',') }}"
 
 - name: Fail check ip network facts
   fail:
     msg: "Check the ip to make sure it is not a gateway or broadcast"
-  when: not host_ip | network_validation(net,gw)
-  vars:
-          net: "{{ my_network }}"
-          gw:  "{{ my_gateway }}"
-
-- set_fact:
-        one: "{{ host_ip | match_network(network_list) }}"
-        two: "{{ host_ip | network_validation(my_network,my_gateway) }}"
+  when: not build_ip | network_validation(build_network_facts['build_network_address'],build_network_facts['build_gateway'])
