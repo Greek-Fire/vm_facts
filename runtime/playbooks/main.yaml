@@ -1,11 +1,11 @@
 - hosts: localhost
   gather_facts: false
   tasks:
-    - name: Print environment variables
-      debug:
-        var: lookup('env', item)
-      loop:
-        - VCENTER_PASSWORD
-        - SATELLITE_PASSWORD
-        - AD_PASSWORD
-        - IDM_PASSWORD
+  - name: Print environment variables
+    debug:
+      var: lookup('env', item)
+    loop:
+    - VCENTER_PASSWORD
+    - SATELLITE_PASSWORD
+    - AD_PASSWORD
+    - IDM_PASSWORD

@@ -5,8 +5,8 @@ import ipaddress
 import sys
 import getpass
 import os
-from jinja2 import Environment, FileSystemLoader
 from ansible_runner import run
+import yaml
 import json
 
 def run_playbook(playbook_path, inventory_path, **kwargs):
@@ -48,17 +48,53 @@ def create_playbook(args, capsule):
     data['idm_principal'] = args.idm_principal
     data['capsule'] = capsule
 
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('runtime/templates/playbook.yaml.j2')
-    rendered_template = template.render(data)
-    inv = 'runtime/inventory/inv'
-    playbook = 'runtime/playbooks/main.yaml'
+    playbook = [
+    {
+        "hosts": capsule,
+        "gather_facts": False,
+        "tasks": [
+            {
+                "name": "Print environment variables",
+                "debug": {
+                    "var": "lookup('env', item)"
+                },
+                "loop": [
+                    "VCENTER_PASSWORD",
+                    "SATELLITE_PASSWORD",
+                    "AD_PASSWORD",
+                    "IDM_PASSWORD"
+                ]
+            }
+        ]
+    }
+]
 
-    with open(playbook, 'w') as file:
-        file.write(rendered_template)
-    with open(inv, 'w') as file:
-        file.write(capsule)
-    run_playbook(playbook, inv)
+
+    with open('runtime/playbooks/main.yaml', 'w') as f:
+        yaml.dump(playbook, f, sort_keys=False)
+
+    # Create inventory JSON file
+    inventory = {
+        "_meta": {
+            "hostvars": {}
+        },
+        "all": {
+            "children": [capsule],
+        },
+        capsule: {
+            "hosts": [args.hostname],
+            "vars": {
+                "ansible_connection": "ssh",
+                "ansible_user": "root",
+                "ansible_become_method": "sudo"
+            }
+        }
+    }
+    with open('inv.json', 'w') as file:
+        json.dump(inventory, file)
+
+    run_playbook('runtime/playbooks/main.yaml', 'runtime/inventory/inv.json')
+
 
 def get_password(password_env_var):
     """
