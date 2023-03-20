@@ -64,11 +64,10 @@ def create_playbook(args, capsule):
                     "AD_PASSWORD",
                     "IDM_PASSWORD"
                 ]
-            }
-        ]
-    }
-]
-
+                }
+            ]
+        }
+    ]
 
     with open('runtime/playbooks/main.yaml', 'w') as f:
         yaml.dump(playbook, f, sort_keys=False)
@@ -125,8 +124,10 @@ def check_hostname_prefix(hostname):
     """
     if len(hostname) < 4:
         return False
+        
     if not hostname[3] in ['s', 'w', 'a']:
         return False
+    
     if hostname[3] == 's':
         result = 'temp'
     elif hostname[3] == 'w':
@@ -156,13 +157,20 @@ def main(args):
         if not check_hostname_prefix(args.hostname):
             print(f"Invalid hostname: {args.hostname}")
             sys.exit(1)
-        if args.ad_principal and hostname[3] not in ['s','w']:
-            ad_password = get_password('AD_PASSWORD')
-        elif args.idm_principal and hostname[3] in ['s','w']:
-            idm_password = get_password('IDM_PASSWORD')
-        else:
-            print(f"Invalid hostname: {args.hostname}. Make sure to use the correct principal.")
-            sys.exit(1)
+
+        if args.ad_principal:
+            if hostname[3] == 'a':
+                ad_password = get_password('AD_PASSWORD')
+            else:
+                print(f"Invalid hostname: {args.hostname}. Make sure to use the correct principal.")
+                sys.exit(1)
+
+        if args.idm_principal:
+            if hostname[3] in ['s', 'w']:
+                idm_password = get_password('IDM_PASSWORD')
+            else:
+                print(f"Invalid hostname: {args.hostname}. Make sure to use the correct principal.")
+                sys.exit(1)
         vcenter_password = get_password('VCENTER_PASSWORD')
         satellite_password = get_password('SATELLITE_PASSWORD')
         
@@ -183,6 +191,8 @@ def parse_arguments():
     parser.add_argument('--storage',type=int, help="This will be used to create a vm with the datastore with the most available space (max 10000 GB): --storage 10000")
     parser.add_argument('--log-file', default='/tmp/builder-logs.json',help="Output file for the playbook run: --output-file /tmp/output.txt")
     parser.add_argument('--verbosity', type=int, default=0, help="Verbosity level of the playbook run: --verbosity 0 (default) is normal, --verbosity 1 is verbose, --verbosity 2 is more verbose, --verbosity 3 is debug, --verbosity 4 is connection debug, --verbosity 5 is winrm debug.")
+    parser.add_argument('--satellite-username',required=True,help="Username for Satellite: --satellite-username admin")
+    parser.add_argument('--vcenter-username',required=True,help="Username for Vcenter: --vcenter-username admin")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--ad-principal', help="Use AD for authentication: --ad-principal admin")
     group.add_argument('--idm-principal',help="Use IDM for authentication: --idm-principal admin")
