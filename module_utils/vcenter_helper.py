@@ -3,7 +3,6 @@
 import atexit
 from pyVim import connect
 from pyVmomi import vim
-from ansible.errors import AnsibleError
 
 class VcenterConnection:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
@@ -27,7 +26,7 @@ class VcenterConnection:
             self.si = service_instance
             return service_instance
         except Exception as e:
-            raise AnsibleError(f"Unable to connect to vCenter: {e}")
+            raise ConnectionError(f"Unable to connect to vCenter: {e}")
 
     def disconnect(self):
         """
@@ -36,7 +35,7 @@ class VcenterConnection:
         try:
             connect.Disconnect(self.si)
         except Exception as e:
-            raise AnsibleError(f"Unable to disconnect from vCenter: {e}")
+            raise ConnectionError(f"Unable to disconnect from vCenter: {e}")
 
 class VcenterFacts:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
@@ -60,6 +59,16 @@ class VcenterFacts:
                 return dc
 
         raise Exception(f"No datacenter found with the name '{datacenter_name}'")
+    
+    def get_clusters_object(self, datacenter_name, cluster_name):
+        """
+        Retrieve a list of cluster objects in the vCenter.
+        """
+        datacenter = self.get_datacenters(datacenter_name)
+        for cluster in datacenter.hostFolder.childEntity:
+            if isinstance(cluster, vim.ClusterComputeResource) and cluster.name == cluster_name:
+                return cluster
+        raise Exception(f"No cluster found with the name '{cluster_name}'")
 
 
     def get_clusters(self, datacenter_name):
@@ -138,7 +147,7 @@ class VcenterFacts:
         }
 
 
-    def get_networks(self, dc=None, datacenter_name, clusters=None):
+    def get_networks(self, datacenter_name, clusters=None):
         """
         Retrieve a list of dictionaries, mapping network names to datacenter and cluster names.
         If datacenters or clusters are not specified, retrieves all datacenters or clusters.
@@ -146,7 +155,7 @@ class VcenterFacts:
         datacenter = self.get_datacenters(datacenter_name)
 
         networks = []
-        dc_clusters = clusters or self.get_clusters([datacenter])
+        dc_clusters = [self.get_clusters_object(datacenter_name, cluster)]
         for cluster in dc_clusters:
             if not isinstance(cluster, vim.ClusterComputeResource):
                 continue
@@ -155,7 +164,7 @@ class VcenterFacts:
             for network in cluster.network:
                 networks.append({
                     'name': network.name,
-                    'datacenter': datacenter.name,
+                    'datacenter': datacenter_name,
                     'cluster': cluster.name,
                 })
 

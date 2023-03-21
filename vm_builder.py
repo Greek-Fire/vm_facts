@@ -81,7 +81,7 @@ def create_playbook(args, capsule):
             "children": [capsule],
         },
         capsule: {
-            "hosts": [args.hostname],
+            "hosts": [capsule],
             "vars": {
                 "ansible_connection": "ssh",
                 "ansible_user": "root",
@@ -171,6 +171,7 @@ def main(args):
             else:
                 print(f"Invalid hostname: {args.hostname}. Make sure to use the correct principal.")
                 sys.exit(1)
+
         vcenter_password = get_password('VCENTER_PASSWORD')
         satellite_password = get_password('SATELLITE_PASSWORD')
         

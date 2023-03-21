@@ -68,14 +68,23 @@ def main():
         username=dict(type='str', required=True),
         password=dict(type='str', required=True, no_log=True),
         disable_ssl_verification=dict(type='bool', default=False),
-        datacenters=dict(type='list', default=[]),
-        clusters=dict(type='list', default=[]),
+        datacenters=dict(type='str', required=True)
+        clusters=dict(type='str', required=True)
+    )
+
+    result = dict(
+        changed=False,
+        networks=[],
+        error="",
     )
 
     module = AnsibleModule(
         argument_spec=module_args,
         supports_check_mode=True,
     )
+
+    if module.check_mode:
+        module.exit_json(**result)
 
     # Retrieve vCenter facts and filter networks by datacenters and clusters
     vcenter_facts = VcenterFacts(
@@ -88,9 +97,8 @@ def main():
         datacenters=module.params['datacenters'],
         clusters=module.params['clusters'],
     )
-
-    module.exit_json(changed=False, ansible_facts=dict(vcenter_networks=networks))
-
+    result['networks'] = networks
+    module.exit_json(**result)
 
 if __name__ == '__main__':
     main()

@@ -66,12 +66,15 @@ def main():
         module.params['password'],
         module.params['disable_ssl_verification'],
     )
+    result = {}
     try:
-        vcenter_facts = VcenterFacts(vcenter, username, password, disable_ssl_verification)
         datacenter = vcenter_facts.get_datacenters()
         result['datacenter'] = [dc.name for dc in datacenter]
+    except vim.fault.InvalidLogin as e:
+        result['error'] = f"Failed to authenticate to vCenter: {str(e)}"
+        module.fail_json(msg=result['error'])
     except Exception as e:
-        result['error'] = f"Failed to retrieve datcenter {datacenter}: {str(e)}"
+        result['error'] = f"Failed to retrieve datacenter {datacenter}: {str(e)}"
         module.fail_json(msg=result['error'])
 
     module.exit_json(**result)
