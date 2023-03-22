@@ -49,24 +49,37 @@ class VcenterFacts:
         content = self.si.content
 
         return content.rootFolder
-
-    def get_datacenters(self, datacenter_name=None):
+    
+    def get_datacenters(self, datacenter_name=None, cluster_name=None):
         """
         Retrieve a list of datacenter objects in the vCenter.
         If datacenter_name is specified, return a tuple with the matching datacenter and its name.
+        If cluster_name is specified, return the datacenter that contains the cluster.
         """
-        content = self.si.content
+        root_folder = self.get_root()
+
+        if cluster_name:
+            # Loop through datacenters in the inventory
+            for dc in root_folder.childEntity:
+                if isinstance(dc, vim.Datacenter):
+                    # Loop through clusters in the datacenter
+                    for cluster in dc.hostFolder.childEntity:
+                        if isinstance(cluster, vim.ClusterComputeResource) and cluster.name == cluster_name:
+                            return dc
+
+            return f"No datacenter found containing the cluster '{cluster_name}'"
 
         if not datacenter_name:
-            datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}
+            datacenters = {dc for dc in root_folder.childEntity if isinstance(dc, vim.Datacenter)}
             return datacenters
 
-        datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}        
-        for dc in datacenters:
-            if dc.name == datacenter_name:
+        # Loop through datacenters in the inventory
+        for dc in root_folder.childEntity:
+            if isinstance(dc, vim.Datacenter) and dc.name == datacenter_name:
                 return dc
 
-        raise Exception(f"No datacenter found with the name '{datacenter_name}'")
+ 
+        return f"No datacenter found with the name '{datacenter_name}'"
     
     def get_clusters_object(self, datacenter_name, cluster_name):
         """
@@ -206,7 +219,7 @@ class VcenterFacts:
         """
         Retrieve all VM templates in the given cluster.
         """
-        cluster_obj = self._find_cluster(cluster_name)
+        cluster_obj = self.get_clusters_object(cluster_name)
         if not cluster_obj:
             raise Exception(f"No cluster found with the name '{cluster_name}'")
 
