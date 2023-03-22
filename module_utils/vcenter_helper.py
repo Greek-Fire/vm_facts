@@ -178,39 +178,6 @@ class VcenterFacts:
 
         return networks
     
-    def get_folders(self):
-        """
-        Find all folders in the vCenter inventory.
-        Return a list of dictionaries containing the folder object and its path.
-        """
-        root_folder = self.get_root()
-        if not isinstance(root_folder, vim.Folder):
-            return None
-
-        folder_objs = []
-        for item in root_folder.childEntity:
-            if isinstance(item, vim.Folder):
-                folder_objs.append(item)
-                folder_objs.extend(self._get_subfolders(item))
-
-        return folder_objs
-
-
-    def _get_subfolders(self, parent_folder, path=""):
-        """
-        Helper method to recursively find all subfolders of a given parent folder.
-        Returns a list of dictionaries containing the folder object and its path.
-        """
-        folder_objs = []
-        for item in parent_folder.childEntity:
-            if isinstance(item, vim.Folder):
-                folder_objs.append(item)
-                subpath = f"{path}/{item.name}" if path else item.name
-                folder_objs.extend(self._get_subfolders(item, subpath))
-
-        return folder_objs
-
-    
     def get_template(self, cluster_name):
         """
         Retrieve all VM templates in the given cluster.
@@ -226,3 +193,49 @@ class VcenterFacts:
                 template_objs.append(vm)
 
         return template_objs
+    
+def get_folders(self):
+    """
+    Find all folders in the vCenter inventory.
+    Return a list of dictionaries containing the folder object and its path.
+    """
+    root_folder = self.get_root()
+    if not isinstance(root_folder, vim.Folder):
+        return None
+
+    folder_objs = []
+    for dc in root_folder.childEntity:
+        if isinstance(dc, vim.Datacenter):
+            folder_objs.extend(self._get_dc_folders(dc))
+
+    return folder_objs
+
+def _get_dc_folders(self, datacenter, path=""):
+    """
+    Helper method to recursively find all folders under a given datacenter object.
+    Returns a list of dictionaries containing the folder object and its path.
+    """
+    folder_objs = []
+    folder_objs.append({'folder': datacenter.vmFolder, 'path': f"{datacenter.name}/vm"})
+    for item in datacenter.vmFolder.childEntity:
+        if isinstance(item, vim.Folder):
+            subpath = f"{path}/{item.name}" if path else item.name
+            folder_objs.append({'folder': item, 'path': f"{datacenter.name}/{subpath}"})
+            folder_objs.extend(self._get_subfolders(item, f"{datacenter.name}/{subpath}"))
+
+    return folder_objs
+
+def _get_subfolders(self, parent_folder, path=""):
+    """
+    Helper method to recursively find all subfolders of a given parent folder.
+    Returns a list of dictionaries containing the folder object and its path.
+    """
+    folder_objs = []
+    for item in parent_folder.childEntity:
+        if isinstance(item, vim.Folder):
+            subpath = f"{path}/{item.name}" if path else item.name
+            folder_objs.append({'folder': item, 'path': subpath})
+            folder_objs.extend(self._get_subfolders(item, subpath))
+
+    return folder_objs
+
