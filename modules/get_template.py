@@ -28,9 +28,9 @@ options:
     required: false
     default: false
     type: bool
-  template_name:
-    description: The name of the template to retrieve.
-    required: true
+  clusters:
+    description: A list of cluster names to filter by. If not specified, retrieves all clusters.
+    required: false
     type: str
 '''
 
@@ -40,7 +40,7 @@ EXAMPLES = '''
     vcenter: vcenter.example.com
     username: admin
     password: password
-    template_name: my_template
+    cluster: vcenter cluster
   register: vcenter_template
 
 - name: Debug vCenter template path
@@ -58,7 +58,7 @@ def main():
         username=dict(type='str', required=True),
         password=dict(type='str', required=True, no_log=True),
         disable_ssl_verification=dict(type='bool', default=False),
-        template_name=dict(type='str', required=True),
+        cluster=dict(type='str', required=True),
     )
 
     result = dict(
@@ -83,7 +83,7 @@ def main():
         module.params['disable_ssl_verification'],
     )
     template_path = vcenter_facts.get_template_path(
-        module.params['template_name']
+        module.params['cluster']
     )
     result['vcenter_template'] = template_path
     module.exit_json(**result)
