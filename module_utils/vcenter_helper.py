@@ -42,6 +42,14 @@ class VcenterFacts:
         self.conn = VcenterConnection(host, user, pwd, disable_ssl_verification)
         self.si = self.conn.connect()
 
+    def get_root(self):
+        """
+        Retrieve the root folder object.
+        """
+        content = self.si.content
+
+        return content.rootFolder
+
     def get_datacenters(self, datacenter_name=None):
         """
         Retrieve a list of datacenter objects in the vCenter.
@@ -169,3 +177,45 @@ class VcenterFacts:
                 })
 
         return networks
+    
+    def find_folder_and_path(self, folder_name):
+        """
+        Find a folder and its path in the vCenter inventory.
+        Return a dictionary with the folder object and its path.
+        If the folder is not found, return None.
+        """
+        root_folder = self.get_root()
+        if not isinstance(root_folder, vim.Folder):
+            return None
+
+        folder_name_lower = folder_name.lower()
+        for item in root_folder.childEntity:
+            if isinstance(item, vim.Folder):
+                if item.name.lower() == folder_name_lower:
+                    return {'folder': item, 'path': root_folder.name}
+                else:
+                    result = find_folder_and_path(folder_name, item)
+                    if result:
+                        folder_dict = result
+                        folder_dict['path'] = f"{root_folder.name}/{folder_dict['path']}"
+                        return folder_dict
+
+        return None
+    
+    def get_template(self, template_name):
+        """
+        Retrieve the VM template object with the given name.
+        """
+       root_folder = self.get_root()
+
+        # Loop through child entities of the root folder
+        template_obj = None
+        for child in root_folder.childEntity:
+            if isinstance(child, vim.VirtualMachine) and child.config.template and child.summary.config.name.lower() == template_name.lower():
+                template_obj = child
+                break
+
+        if not template_obj:
+            raise Exception(f"No template found with the name '{template_name}'")
+
+        return template_obj
