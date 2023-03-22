@@ -49,37 +49,24 @@ class VcenterFacts:
         content = self.si.content
 
         return content.rootFolder
-    
-    def get_datacenters(self, datacenter_name=None, cluster_name=None):
+
+    def get_datacenters(self, datacenter_name=None):
         """
         Retrieve a list of datacenter objects in the vCenter.
         If datacenter_name is specified, return a tuple with the matching datacenter and its name.
-        If cluster_name is specified, return the datacenter that contains the cluster.
         """
-        root_folder = self.get_root()
-
-        if cluster_name:
-            # Loop through datacenters in the inventory
-            for dc in root_folder.childEntity:
-                if isinstance(dc, vim.Datacenter):
-                    # Loop through clusters in the datacenter
-                    for cluster in dc.hostFolder.childEntity:
-                        if isinstance(cluster, vim.ClusterComputeResource) and cluster.name == cluster_name:
-                            return dc
-
-            return f"No datacenter found containing the cluster '{cluster_name}'"
+        content = self.si.content
 
         if not datacenter_name:
-            datacenters = {dc for dc in root_folder.childEntity if isinstance(dc, vim.Datacenter)}
+            datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}
             return datacenters
 
-        # Loop through datacenters in the inventory
-        for dc in root_folder.childEntity:
-            if isinstance(dc, vim.Datacenter) and dc.name == datacenter_name:
+        datacenters = {dc for dc in content.rootFolder.childEntity if isinstance(dc, vim.Datacenter)}        
+        for dc in datacenters:
+            if dc.name == datacenter_name:
                 return dc
 
- 
-        return f"No datacenter found with the name '{datacenter_name}'"
+        raise Exception(f"No datacenter found with the name '{datacenter_name}'")
     
     def get_clusters_object(self, datacenter_name, cluster_name):
         """
@@ -176,7 +163,7 @@ class VcenterFacts:
         datacenter = self.get_datacenters(datacenter_name)
 
         networks = []
-        dc_clusters = [self.get_clusters_object(datacenter_name, cluster)]
+        dc_clusters = [self.get_clusters_object(datacenter_name, clusters)]
         for cluster in dc_clusters:
             if not isinstance(cluster, vim.ClusterComputeResource):
                 continue
@@ -191,35 +178,44 @@ class VcenterFacts:
 
         return networks
     
-    def find_folder_and_path(self, folder_name):
+    def get_folders(self):
         """
-        Find a folder and its path in the vCenter inventory.
-        Return a dictionary with the folder object and its path.
-        If the folder is not found, return None.
+        Find all folders in the vCenter inventory.
+        Return a list of dictionaries containing the folder object and its path.
         """
         root_folder = self.get_root()
         if not isinstance(root_folder, vim.Folder):
             return None
 
-        folder_name_lower = folder_name.lower()
+        folder_objs = []
         for item in root_folder.childEntity:
             if isinstance(item, vim.Folder):
-                if item.name.lower() == folder_name_lower:
-                    return {'folder': item, 'path': root_folder.name}
-                else:
-                    result = find_folder_and_path(folder_name, item)
-                    if result:
-                        folder_dict = result
-                        folder_dict['path'] = f"{root_folder.name}/{folder_dict['path']}"
-                        return folder_dict
+                folder_objs.append(item)
+                folder_objs.extend(self._get_subfolders(item))
 
-        return None
+        return folder_objs
+
+
+    def _get_subfolders(self, parent_folder, path=""):
+        """
+        Helper method to recursively find all subfolders of a given parent folder.
+        Returns a list of dictionaries containing the folder object and its path.
+        """
+        folder_objs = []
+        for item in parent_folder.childEntity:
+            if isinstance(item, vim.Folder):
+                folder_objs.append(item)
+                subpath = f"{path}/{item.name}" if path else item.name
+                folder_objs.extend(self._get_subfolders(item, subpath))
+
+        return folder_objs
+
     
     def get_template(self, cluster_name):
         """
         Retrieve all VM templates in the given cluster.
         """
-        cluster_obj = self.get_clusters_object(cluster_name)
+        cluster_obj = self._find_cluster(cluster_name)
         if not cluster_obj:
             raise Exception(f"No cluster found with the name '{cluster_name}'")
 
