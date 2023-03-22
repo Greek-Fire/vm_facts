@@ -202,28 +202,18 @@ class VcenterFacts:
 
         return None
     
-    def get_template(self, template_name):
+    def get_template(self, cluster_name):
         """
-        Retrieve the VM template object with the given name.
+        Retrieve all VM templates in the given cluster.
         """
-        root_folder = self.get_root()
+        cluster_obj = self._find_cluster(cluster_name)
+        if not cluster_obj:
+            raise Exception(f"No cluster found with the name '{cluster_name}'")
 
-        # Loop through child entities of the root folder
+        # Loop through VMs in the cluster and add templates to the list
         template_objs = []
-        for child in root_folder.childEntity:
-            if isinstance(child, vim.VirtualMachine) and child.config.template and child.summary.config.name.lower() == template_name.lower():
-                template_objs.append(child)
-
-        if not template_objs:
-            # Clear the template_objs list to fetch all templates
-            template_objs.clear()
-            
-            # Loop through child entities of the root folder
-            for child in root_folder.childEntity:
-                if isinstance(child, vim.VirtualMachine) and child.config.template:
-                    template_objs.append(child)
-                    
-            all_templates = [child.summary.config.name for child in template_objs]
-            raise Exception(f"No template found with the name '{template_name}'. Available templates: {', '.join(all_templates)}")
+        for vm in cluster_obj.vm:
+            if isinstance(vm, vim.VirtualMachine) and vm.config.template:
+                template_objs.append(vm)
 
         return template_objs
