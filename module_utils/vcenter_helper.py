@@ -209,13 +209,13 @@ class VcenterFacts:
        root_folder = self.get_root()
 
         # Loop through child entities of the root folder
-        template_obj = None
+        template_objs = []
         for child in root_folder.childEntity:
             if isinstance(child, vim.VirtualMachine) and child.config.template and child.summary.config.name.lower() == template_name.lower():
-                template_obj = child
-                break
+                template_objs.append(child)
 
-        if not template_obj:
-            raise Exception(f"No template found with the name '{template_name}'")
+        if not template_objs:
+            all_templates = [child.summary.config.name for child in root_folder.childEntity if isinstance(child, vim.VirtualMachine) and child.config.template]
+            raise Exception(f"No template found with the name '{template_name}'. Available templates: {', '.join(all_templates)}")
 
-        return template_obj
+        return template_objs
