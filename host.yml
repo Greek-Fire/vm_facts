@@ -1,0 +1,52 @@
+
+    - name: Check if host exists in Satellite
+      uri:
+        url: "{{ satellite_fqdn }}/api/v2/hosts/{{ build_hostname }}"
+        method: GET
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        headers:
+          Accept: "application/json"
+        status_code: 200, 404
+        validate_certs: False
+      register: host_check
+
+    - name: Create or update host in Satellite
+      uri:
+        url: "{{ satellite_fqdn }}/api/v2/hosts/{{ build_hostname }}"
+        method: POST
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ build_hostname }}"
+          location_name: "{{ satellite_location }}"
+          organization_name: "{{ satellite_organization }}"
+          ip: "{{ build_ip }}"
+          mac: "{{ build_mac }}"
+          role: "{{ build_role }}"
+        validate_certs: False
+      when: host_check.status == 404
+
+    - name: Update host in Satellite
+      uri:
+        url: "{{ satellite_url }}/api/v2/hosts/{{ build_name }}"
+        method: PUT
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ build_name }}"
+          location_name: "{{ satellite_location }}"
+          organization_name: "{{ satellite_organization }}"
+          ip: "{{ build_ip }}"
+          mac: "{{ build_mac }}"
+          role: "{{ build_role }}"
+          hostgroup_names:
+            - "{{ build_hostgroup_name }}"
+        validate_certs: False
+      register: host_update
