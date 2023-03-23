@@ -1,0 +1,36 @@
+---
+- name: Get hostgroup ID by name
+  uri:
+    url: "{{ satellite_url }}/api/v2/organizations/{{ satellite_organization }}/hostgroups"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    headers:
+      Accept: "application/json"
+    params:
+      search: "{{ satellite_location | lower }}"
+    validate_certs: False
+  register: hostgroup_result
+
+- name: Handle hostgroup ID lookup error
+  fail:
+    msg: "Error looking up hostgroup ID: {{ hostgroup_result }}"
+  when: hostgroup_result.status != 200
+
+- name: Get hostgroup parameters by ID
+  uri:
+    url: "{{ satellite_url }}/api/v2/hostgroups/{{ hostgroup_id }}/parameters"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    headers:
+      Accept: "application/json"
+    validate_certs: False
+  vars:
+    hostgroup_id: "{{ hostgroup_result.json.results[0].id }}"
+  register: params_result
+
+- name: Handle hostgroup parameters lookup error
+  fail:
+    msg: "Error looking up hostgroup parameters: {{ params_result }}"
+  when: params_result.status != 200
