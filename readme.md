@@ -54,3 +54,17 @@ bash wrapper.bash
   --satellite-username admin \
   --vcenter-username admin \
   --ad-principal admin
+
+# Options
+- --ip: Required. IP address for the VM.
+- --hostname: Required. Name of the hostname.
+- --vmname: Name of the VM. If not provided, it will default to the hostname.
+- --memory: Required. Memory size in GB. Maximum size is 64GB.
+- --cores: Required. Number of CPU cores. Maximum number is 12.
+- --storage: Size of storage for the VM. This will be used to create a VM with the datastore that has the most available space. Maximum size is 10000 GB.
+- --log-file: Output file for the playbook run. Default is /tmp/builder-logs.json.
+- --verbosity: Verbosity level of the playbook run. Default is 0. Possible values are: 0 (normal), 1 (verbose), 2 (more verbose), 3 (debug), 4 (connection debug), and 5 (winrm debug).
+- --satellite-username: Required. Username for Satellite.
+- --vcenter-username: Required. Username for Vcenter.
+- --ad-principal: Use AD for authentication. If provided, make sure to use the correct principal in the hostname.
+- --idm-principal: Use IDM for authentication. If provided, make sure to use the correct principal in the hostname.
