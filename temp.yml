@@ -1,0 +1,16 @@
+    - name: Set IP address, netmask, DNS, and gateway using vmware_vm_shell with a loop
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        vm_id: "{{ vm_name }}"
+        cmd: "{{ item }}"
+        timeout: 120
+        success_codes: [0,1]
+      loop:
+        - "nmcli con modify ens192 ipv4.addresses {{ build_ip }}/{{ build_mask }}"
+        - "nmcli con modify ens192 ipv4.gateway {{ build_gateway }}"
+        - "nmcli con modify ens192 ipv4.dns '{{ build_dns | join(",") }}'"
+        - "nmcli con up eth0"
+      delegate_to: localhost
