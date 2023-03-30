@@ -1,0 +1,8 @@
+Purpose:
+The purpose of the software is to automate the build process for RHEL servers on VMware. This automation will simplify and streamline the server build process, reducing the time and effort required to deploy new servers. By automating the build process, it will also reduce the likelihood of errors and ensure consistency in server configurations.
+
+Background:
+In our organizations, the process of building and deploying new servers can be time-consuming and error-prone. Manually installing and configuring operating systems, applications, and other software can take hours or even days, depending on the complexity of the server environment. Additionally, manual processes can introduce errors and inconsistencies, which can lead to operational issues and security vulnerabilities.
+
+Scope:
+The scope of the software is to automate the build process for RHEL servers on VMware. This includes automating the installation and configuration of the RHEL operating system, as well as any necessary agents and update all software to the latest version. The software will also automate the configuration of VMware settings, such as virtual hardware, network settings, and storage settings. The software will be designed to be flexible and customizable, so that it can be adapted to meet the specific needs of different organizations and environments. Finally, the software will be designed to be easy to use, with a simple and intuitive user interface, and comprehensive documentation to help users get up and running quickly.
