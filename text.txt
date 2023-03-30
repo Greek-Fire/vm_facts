@@ -6,3 +6,19 @@ In our organizations, the process of building and deploying new servers can be t
 
 Scope:
 The scope of the software is to automate the build process for RHEL servers on VMware. This includes automating the installation and configuration of the RHEL operating system, as well as any necessary agents and update all software to the latest version. The software will also automate the configuration of VMware settings, such as virtual hardware, network settings, and storage settings. The software will be designed to be flexible and customizable, so that it can be adapted to meet the specific needs of different organizations and environments. Finally, the software will be designed to be easy to use, with a simple and intuitive user interface, and comprehensive documentation to help users get up and running quickly.
+
+In order to successfully run the software for automating the build of RHEL servers on VMware, the following requirements must be met:
+
+The software must be able to run on a satellite server. The server must have the necessary resources to run the software, including sufficient CPU, memory, and storage.
+
+The user must have access to the satellite server. The user must have the necessary privileges to install and run software on the server.
+
+The user must have read and write access to the satellite webUI. This is necessary in order to configure and manage the software.
+
+The user must have read and write access to vCenter. This is necessary in order to manage and configure the virtual machines that will be used for the RHEL servers.
+
+The user must have permissions to join the RHEL servers to Active Directory. This is necessary in order to integrate the servers into the organization's authentication and authorization infrastructure.
+
+The user must have permissions to join the RHEL servers to IDM (Identity Management). This is necessary in order to manage the servers' identities and access control within the organization's infrastructure.
+
+By ensuring that these prerequisites are met, the user will have the necessary tools and permissions to successfully deploy and manage RHEL servers on VMware using the automated build process.
