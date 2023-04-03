@@ -42,3 +42,26 @@ def get_datastore_with_most_space_in_cluster(self, datastore_cluster_name, compu
         'free_space': max_datastore.summary.freeSpace,
         'total_space': max_datastore.summary.capacity
     }
+
+def get_datastore_clusters_for_compute_cluster(self, compute_cluster_name):
+    """
+    Find all the datastore clusters that can be accessed by a VM in a certain compute cluster.
+    """
+    datacenters = self.get_datacenters()
+    datastore_clusters = []
+
+    for datacenter in datacenters:
+        for cluster in datacenter.hostFolder.childEntity:
+            if isinstance(cluster, vim.ClusterComputeResource) and cluster.name == compute_cluster_name:
+                for datastore_cluster in cluster.datastoreCluster:
+                    datastore_clusters.append({
+                        'name': datastore_cluster.name,
+                        'datacenter': datacenter.name,
+                        'compute_cluster': compute_cluster_name,
+                        'datastores': [ds.name for ds in datastore_cluster.childEntity]
+                    })
+
+    if not datastore_clusters:
+        raise Exception(f"No datastore clusters found for the compute cluster '{compute_cluster_name}'")
+
+    return datastore_clusters
