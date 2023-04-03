@@ -1,0 +1,61 @@
+- name: Configure network adapter on virtual machine
+  community.vmware.vmware_guest_network:
+    hostname:   "{{ vcenter_hostname }}"
+    username:   "{{ vcenter_username }}"
+    password:   "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    name: "{{ build_name }}"
+    state: present
+    network_name: "{{ vlan }}"
+  register: network_adapter
+
+- name: Check network adapter connection state
+  debug:
+    msg: "Network adapter connected: {{ network_adapter.nics[0].connected }}"
+
+- name: Check network adapter start connected state
+  debug:
+    msg: "Network adapter start connected: {{ network_adapter.nics[0].startConnected }}"
+
+- name: Remove network adapter if not connected or start connected
+  community.vmware.vmware_guest_network:
+    hostname:   "{{ vcenter_hostname }}"
+    username:   "{{ vcenter_username }}"
+    password:   "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    name: "{{ build_name }}"
+    state: absent
+    network_name: "{{ vlan }}"
+  when: not network_adapter.nics[0].connected or not network_adapter.nics[0].startConnected
+
+- name: Add network adapter if not connected or start connected
+  community.vmware.vmware_guest_network:
+    hostname:   "{{ vcenter_hostname }}"
+    username:   "{{ vcenter_username }}"
+    password:   "{{ vcenter_password }}"
+    datacenter: "{{ datacenter }}"
+    name: "{{ build_name }}"
+    state: present
+    connected: true
+    start_connected: true
+    network_name: "{{ vlan }}"
+  when: not network_adapter.nics[0].connected or not network_adapter.nics[0].startConnected
+
+- set_fact:
+    build_mac: "{{ network_adapter.nics[0].mac_address }}"
+
+- name: Set IP address using nmcli
+  community.vmware.vmware_vm_shell:
+    hostname:      "{{ vcenter_hostname }}"
+    username:      "{{ vcenter_username }}"
+    password:      "{{ vcenter_password }}"
+    datacenter:    "{{ datacenter   }}"
+    vm_id:         "{{ build_vmname }}"
+    vm_username:   "{{ build_shell_username }}"
+    vm_password:   "{{ build_root_password  }}"
+    vm_shell:      "/bin/nmcli"
+    vm_shell_args: "{{ item }}"
+  loop: 
+  - "connection modify 'ens192' ipv4.addresses {{ build_ip }}/{{ build_cidr }} ipv4.gateway {{ build_gw }} ipv4.method manual
+  - "connection modify eth0 ipv4.dns {{ build_dns }}"
+  - "systemctl restart NetworkManager"
