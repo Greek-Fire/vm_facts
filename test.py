@@ -65,3 +65,30 @@ def get_datastore_clusters_for_compute_cluster(self, compute_cluster_name):
         raise Exception(f"No datastore clusters found for the compute cluster '{compute_cluster_name}'")
 
     return datastore_clusters
+
+def get_datastores_in_compute_cluster(self, compute_cluster_name, datacenter_name=None):
+    """
+    Find all datastores mapped to a compute cluster in the specified datacenter.
+    If no datacenter is specified, search across all datacenters.
+    """
+    datacenters = self.get_datacenters()
+    datastores = []
+
+    for datacenter in datacenters:
+        if datacenter_name and datacenter.name != datacenter_name:
+            continue
+
+        compute_cluster = self.get_compute_cluster(datacenter.name, compute_cluster_name)
+        if not compute_cluster:
+            continue
+
+        for datastore in compute_cluster.datastore:
+            datastores.append({
+                'name': datastore.name,
+                'free_space': datastore.summary.freeSpace,
+                'total_space': datastore.summary.capacity,
+                'compute_cluster': compute_cluster_name,
+                'datacenter': datacenter.name
+            })
+
+    return datastores
