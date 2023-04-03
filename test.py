@@ -66,29 +66,41 @@ def get_datastore_clusters_for_compute_cluster(self, compute_cluster_name):
 
     return datastore_clusters
 
-def get_datastores_in_compute_cluster(self, compute_cluster_name, datacenter_name=None):
+def get_datastore_with_most_space_in_cluster(self, compute_cluster_name):
     """
-    Find all datastores mapped to a compute cluster in the specified datacenter.
-    If no datacenter is specified, search across all datacenters.
+    Find the datastore with the most available storage in the specified compute cluster.
+    If a datacenter is specified, only consider datastores in that datacenter.
     """
     datacenters = self.get_datacenters()
-    datastores = []
+    compute_cluster = None
 
     for datacenter in datacenters:
-        if datacenter_name and datacenter.name != datacenter_name:
-            continue
+        for cluster in datacenter.hostFolder.childEntity:
+            if isinstance(cluster, vim.ComputeResource) and cluster.name == compute_cluster_name:
+                compute_cluster = cluster
+                break
+        if compute_cluster:
+            break
 
-        compute_cluster = self.get_compute_cluster(datacenter.name, compute_cluster_name)
-        if not compute_cluster:
-            continue
+    if not compute_cluster:
+        raise Exception(f"No compute cluster found with the name '{compute_cluster_name}'")
 
-        for datastore in compute_cluster.datastore:
-            datastores.append({
-                'name': datastore.name,
-                'free_space': datastore.summary.freeSpace,
-                'total_space': datastore.summary.capacity,
-                'compute_cluster': compute_cluster_name,
-                'datacenter': datacenter.name
-            })
+    datastores = []
+    for host in compute_cluster.host:
+        for datastore in host.datastore:
+            if datastore not in datastores:
+                datastores.append(datastore)
 
-    return datastores
+    if not datastores:
+        raise Exception(f"No datastores found in the specified compute cluster '{compute_cluster_name}'")
+
+    # Find the datastore with the most free space
+    max_datastore = max(datastores, key=lambda x: x.summary.freeSpace)
+
+    return {
+        'name': max_datastore.name,
+        'compute_cluster': compute_cluster_name,
+        'free_space': max_datastore.summary.freeSpace,
+        'total_space': max_datastore.summary.capacity
+    }
+
