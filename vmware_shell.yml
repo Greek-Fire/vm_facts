@@ -56,6 +56,7 @@
     vm_shell:      "/bin/nmcli"
     vm_shell_args: "{{ item }}"
   loop: 
-  - "connection modify 'ens192' ipv4.addresses {{ build_ip }}/{{ build_cidr }} ipv4.gateway {{ build_gw }} ipv4.method manual
-  - "connection modify eth0 ipv4.dns {{ build_dns }}"
+  - "connection delete $(nmcli connection show | grep -i connection | awk '{print $1}')"
+  - "connection modify ens192 ipv4.addresses {{ build_ip }}/{{ build_cidr }} ipv4.gateway {{ build_gw }} ipv4.method manual
+  - "connection modify ens192 ipv4.dns {{ build_dns }}"
   - "systemctl restart NetworkManager"
