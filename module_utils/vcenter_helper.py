@@ -1,8 +1,7 @@
 # vcenter_helper.py
-
 import atexit
-from pyVim import connect
-from pyVmomi import vim
+import requests
+import base64
 
 class VcenterConnection:
     def __init__(self, host, user, pwd, disable_ssl_verification=False):
@@ -10,7 +9,7 @@ class VcenterConnection:
         self.user = user
         self.pwd = pwd
         self.disable_ssl_verification = disable_ssl_verification
-        self.si = None
+        self.session = None
 
     def connect(self):
         """
@@ -18,13 +17,21 @@ class VcenterConnection:
         """
         try:
             if self.disable_ssl_verification:
-                service_instance = connect.SmartConnectNoSSL(host=self.host, user=self.user, pwd=self.pwd)
+                requests.packages.urllib3.disable_warnings()
+                verify = False
             else:
-                service_instance = connect.SmartConnect(host=self.host, user=self.user, pwd=self.pwd)
+                verify = True
 
-            atexit.register(connect.Disconnect, service_instance)
-            self.si = service_instance
-            return service_instance
+            url = f"https://{self.host}/rest/com/vmware/cis/session"
+            auth = base64.b64encode(f"{self.user}:{self.pwd}".encode()).decode("utf-8")
+            headers = {"Authorization": f"Basic {auth}"}
+            response = requests.post(url, headers=headers, verify=verify)
+
+            if response.status_code != 200:
+                raise ConnectionError(f"Unable to connect to vCenter: {response.reason}")
+
+            self.session = response.json()["value"]
+            return self.session
         except Exception as e:
             raise ConnectionError(f"Unable to connect to vCenter: {e}")
 
@@ -33,7 +40,19 @@ class VcenterConnection:
         Disconnect from vCenter.
         """
         try:
-            connect.Disconnect(self.si)
+            if self.disable_ssl_verification:
+                verify = False
+            else:
+                verify = True
+
+            url = f"https://{self.host}/rest/com/vmware/cis/session"
+            headers = {"vmware-api-session-id": self.session}
+            response = requests.delete(url, headers=headers, verify=verify)
+
+            if response.status_code != 200:
+                raise ConnectionError(f"Unable to disconnect from vCenter: {response.reason}")
+
+            self.session = None
         except Exception as e:
             raise ConnectionError(f"Unable to disconnect from vCenter: {e}")
 
